@@ -1,20 +1,30 @@
 import argparse
 import os
+import subprocess
 import random
 
-class VideoPickerError(Exception):
+class VideoPickerException(Exception):
     '''Root Exception for the video_picker module'''
     def __init__(self, msg):
         self.msg = msg
     def __str__(self):
         return "{}: {}".format(self.__class__.__name__, self.msg)
 
-class NoVideosError(VideoPickerError):
+class NoVideosException(VideoPickerException):
     '''Exception for video_picker module. Raised when there are no
     compatible video files found in the chosen directory.
     '''
     def __init__(self):
-        super().__init__("No compatible video files found in given directory.")
+        VideoPickerException.__init__(self, 
+                                      "No compatible video files found in given directory.")
+
+class UnsupportedOSException(VideoPickerException):
+    '''Exception for video_picker module. Raised when attempting 'pick' on an
+    unsupported OS.
+    '''
+    def __init__(self):
+        VideoPickerException.__init__(self, 
+                                      "Unsupported operating system, unsure how to launch video.")
 
 def pick(directory, recursive=False, video_types=['.avi', '.mp4', '.wmv', '.mkv']):
     '''Randomly chooses and plays a video file in the given directory.
@@ -22,19 +32,31 @@ def pick(directory, recursive=False, video_types=['.avi', '.mp4', '.wmv', '.mkv'
        files underneath it. Modify video_types in this script to include other file types.
     '''     
     videos = []
-    if os.name == 'nt':
-        if recursive:
-            for root, dirs, files in os.walk(args.directory):
-                videos+=[os.path.join(root, f) for f in files]
-        else:
-            videos = os.listdir(directory)
-            
-        videos = [v for v in videos if v[-4:].lower() in video_types]
-        if len(videos) == 0:
-            raise NoVideosError()
-            
-        v = videos[random.randint(0, len(videos)-1)]
-        os.startfile(os.path.join(directory, v))
+    
+    #gather files recursively or just in the given directory
+    if recursive:
+        for root, dirs, files in os.walk(args.directory):
+            videos+=[os.path.join(root, f) for f in files]
+    else:
+        videos = os.listdir(directory)
+    
+    #take only those whose extensions are in video_types        
+    videos = [v for v in videos if v[-4:].lower() in video_types]
+    if len(videos) == 0:
+        raise NoVideosException()
+    
+    #choose a random video        
+    v = videos[random.randint(0, len(videos)-1)]
+    filepath = os.join(directory, v)
+    
+    #figure out how to play it
+    if os.name == 'nt':    
+        os.startfile(filepath)
+    elif os.name == 'posix':
+        subprocess.call(('xdg-open', filepath))
+    else:
+        raise UnsupportedOSException()
+        
             
 if __name__ == '__main__':
     desc = """Randomly chooses and plays a video file in the given directory.
@@ -49,5 +71,7 @@ if __name__ == '__main__':
     
     try:
         pick(args.directory, args.recursive)
-    except NoVideosError as e:
+    except NoVideosException as e:
+        print("Error: {}".format(e.msg))
+    except UnsupportedOSException as e:
         print("Error: {}".format(e.msg))
