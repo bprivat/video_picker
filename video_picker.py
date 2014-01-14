@@ -26,7 +26,7 @@ class UnsupportedOSException(VideoPickerException):
         VideoPickerException.__init__(self, 
                                       "Unsupported operating system, unsure how to launch video.")
 
-def pick(directory, recursive=False, video_types=['.avi', '.mp4', '.wmv', '.mkv']):
+def pick(directory, recursive=False, video_types=('.avi', '.mp4', '.wmv', '.mkv')):
     '''Randomly chooses and plays a video file in the given directory.
        With 'recursive', starts at specified directory and includes all
        files underneath it. Modify video_types in this script to include other file types.
@@ -40,14 +40,16 @@ def pick(directory, recursive=False, video_types=['.avi', '.mp4', '.wmv', '.mkv'
     else:
         videos = os.listdir(directory)
     
-    #take only those whose extensions are in video_types        
-    videos = [v for v in videos if v[-4:].lower() in video_types]
+    #ensure extensions are lower case
+    video_types = [t.lower() for t in video_types]
+    #take only videos whose extensions are in video_types        
+    videos = [v for v in videos if v.lower().endswith(tuple(video_types))]
     if len(videos) == 0:
         raise NoVideosException()
     
     #choose a random video        
     v = videos[random.randint(0, len(videos)-1)]
-    filepath = os.join(directory, v)
+    filepath = os.path.join(directory, v)
     
     #figure out how to play it
     if os.name == 'nt':    
@@ -71,7 +73,5 @@ if __name__ == '__main__':
     
     try:
         pick(args.directory, args.recursive)
-    except NoVideosException as e:
-        print("Error: {}".format(e.msg))
-    except UnsupportedOSException as e:
+    except VideoPickerException as e:
         print("Error: {}".format(e.msg))
